@@ -1,0 +1,316 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>PUBG MAP</title>
+  <link rel="stylesheet" as="style" crossorigin href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/variable/pretendardvariable.min.css" />
+  <link rel="stylesheet" href="src/style.css">
+</head>
+<body>
+  <div class="image-list">
+    <div class="row">
+      <button onclick="enableMeasurement()" id="discal">위치 지정</button>
+      <div id="distanceDisplay">D:</div>
+    </div>
+    <div class="column">
+      <button onclick="loadImage('img/Erangel_Main_High_Res.png', 8)"><img src="img/Erangel_banner.png" id="mapselect" style="width: 200px"></button>
+      <button onclick="loadImage('img/Miramar_Main_High_Res.png', 8)"><img src="img/Miramar_banner.png" id="mapselect" style="width: 200px"></button>
+      <button onclick="loadImage('img/Taego_Main_High_Res.png', 8)"><img src="img/Taego_banner.png" id="mapselect" style="width: 200px"></button>
+      <button onclick="loadImage('img/Vikendi_Main_High_Res.png', 8)"><img src="img/Vikendi_banner.png" id="mapselect" style="width: 200px"></button>
+      <button onclick="loadImage('img/Rondo_Main_High_Res.png', 8)"><img src="img/Rondo_banner.png" id="mapselect" style="width: 200px"></button>
+      <button onclick="loadImage('img/Deston_Main_High_Res.png', 8)"><img src="img/Deston_banner.png" id="mapselect" style="width: 200px"></button>
+      <button onclick="loadImage('img/Sanhok_Main_High_Res.png', 4)"><img src="img/Sanhok_banner.png" id="mapselect" style="width: 200px"></button>
+    </div>
+  </div>
+  <div class="image-container" id="container" onwheel="zoomImage(event)">
+    <!-- mapWrapper 내부에 overlay와 grid를 함께 포함 -->
+    <div id="mapWrapper" onclick="overlayClick(event)">
+      <img id="mapImage" src="">
+      <div id="overlay"></div>
+    </div>
+  </div>
+  <script>
+    const scrollContainer = document.querySelector(".column");
+    scrollContainer.addEventListener('wheel', function(event) {
+      event.preventDefault();
+      scrollContainer.scrollBy({ left: event.deltaY });
+    });
+
+    const img = document.getElementById("mapImage");
+    const wrapper = document.getElementById("mapWrapper");
+    const container = document.getElementById("container");
+    const overlay = document.getElementById("overlay");
+    const distanceDisplay = document.getElementById("distanceDisplay");
+
+    let baseScale = 1;
+    let zoom = 1;
+    let totalScale = 1;
+    // dx, dy: 이미지 이동 오프셋 (이제 자유롭게 변경됨)
+    let dx = 0, dy = 0;
+    let dragging = false, startX, startY;
+    let mapSizeKm = 8;
+    const maxTotalScale = 15;
+    const minZoom = 0.7;
+
+    // 측정 관련 (이미지 자연 좌표 기준)
+    let measuring = false;
+    let measurePoints = []; // {x, y} in image coordinates
+    let previewLine = null;
+
+    function clamp(val, min, max) {
+      return Math.max(min, Math.min(max, val));
+    }
+
+    function loadImage(imageSrc, sizeKm) {
+      img.src = imageSrc;
+      img.onload = function() {
+        const scaleX = container.clientWidth / img.naturalWidth;
+        const scaleY = container.clientHeight / img.naturalHeight;
+        scale = Math.min(scaleX, scaleY);
+
+        // 이미지 크기를 최적화하여 설정
+        img.style.width = `${img.naturalWidth * scale}px`;
+        img.style.height = `${img.naturalHeight * scale}px`;
+
+        wrapper.style.transformOrigin = "center center";
+        wrapper.style.transform = `translate(-50%, -50%) scale(1)`;
+        drawGrid();
+      };
+      mapSizeKm = sizeKm;
+      dx = 0;
+      dy = 0;
+    }
+
+    // requestAnimationFrame을 사용하여 드래그 최적화
+    let animFrame;
+    container.addEventListener("mousedown", function(event) {
+      if (event.button !== 0) return;
+      if (measuring) return;
+      dragging = true;
+      startX = event.clientX;
+      startY = event.clientY;
+    });
+    container.addEventListener("mousemove", function(event) {
+      if (!dragging) return;
+      if (animFrame) cancelAnimationFrame(animFrame);
+      animFrame = requestAnimationFrame(() => {
+        const deltaX = event.clientX - startX;
+        const deltaY = event.clientY - startY;
+        dx += deltaX;
+        dy += deltaY;
+        startX = event.clientX;
+        startY = event.clientY;
+        updateTransform();
+      });
+    });
+    document.addEventListener("mouseup", function() {
+      dragging = false;
+    });
+
+    function zoomImage(event) {
+      event.preventDefault();
+      requestAnimationFrame(() => {
+        const oldTotalScale = totalScale;
+        const oldZoom = zoom;
+
+        let factor = zoom >= 3 ? 0.3 : 0.1;
+        zoom += event.deltaY > 0 ? -factor : factor;
+        zoom = Math.max(minZoom, Math.min(maxTotalScale / baseScale, zoom));
+        totalScale = baseScale * zoom;
+
+        // 마우스 기준 확대/축소
+        const rect = wrapper.getBoundingClientRect();
+        const mouseX = (event.clientX - wrapper.getBoundingClientRect().left - dx) / totalScale;
+        const mouseY = (event.clientY - wrapper.getBoundingClientRect().top - dy) / totalScale;
+
+        // 확대 비율에 맞춰 dx, dy 조정 (이전 배율과 새로운 배율 차이를 이용)
+        dx = (dx - mouseX) * (totalScale / oldTotalScale) + mouseX;
+        dy = (dy - mouseY) * (totalScale / oldTotalScale) + mouseY;
+
+        updateTransform();
+      });
+    }
+
+    // updateTransform: clamping 제거하여 자유롭게 이동
+    function updateTransform() {
+      // clamping 제거: 자유로운 dx, dy 적용
+      wrapper.style.transform = `translate(calc(-50% + ${dx}px), calc(-50% + ${dy}px)) scale(${totalScale})`;
+      drawGrid();
+      updateOverlay();
+    }
+
+    function drawGrid() {
+      wrapper.querySelectorAll('.grid-line').forEach(e => e.remove());
+      const dispW = wrapper.clientWidth;
+      const dispH = wrapper.clientHeight;
+      const kmPerPixel = mapSizeKm / img.naturalWidth;
+      // 그리드 간격 (100m, 1km)
+      const stepSmall = (0.1 / kmPerPixel);
+      const stepLarge = (1 / kmPerPixel);
+      // clamping 없이 단순히 반복문을 돌림
+      for (let x = 0; x <= dispW; x += stepSmall) {
+        const line = document.createElement("div");
+        line.classList.add("grid-line");
+        if (Math.abs(x % stepLarge) < stepSmall / 2) line.classList.add("grid-line-thick");
+        line.style.left = `${x}px`;
+        line.style.width = "1px";
+        line.style.top = "0";
+        line.style.height = `${dispH}px`;
+        wrapper.appendChild(line);
+      }
+      for (let y = 0; y <= dispH; y += stepSmall) {
+        const line = document.createElement("div");
+        line.classList.add("grid-line");
+        if (Math.abs(y % stepLarge) < stepSmall / 2) line.classList.add("grid-line-thick");
+        line.style.top = `${y}px`;
+        line.style.height = "1px";
+        line.style.left = "0";
+        line.style.width = `${dispW}px`;
+        wrapper.appendChild(line);
+      }
+    }
+
+    function enableMeasurement() {
+      measuring = true;
+      measurePoints = [];
+      clearOverlay();
+      distanceDisplay.innerText = "D:";
+      container.style.cursor = "crosshair";
+    }
+
+    function overlayClick(event) {
+      if (!measuring) return;
+
+      const rect = wrapper.getBoundingClientRect(); // wrapper의 현재 화면 위치
+      const imgRect = img.getBoundingClientRect(); // 이미지의 실제 위치
+
+      // 마우스 클릭 좌표 (브라우저 기준)
+      const mouseX = event.clientX;
+      const mouseY = event.clientY;
+
+      // 마우스 클릭 좌표를 이미지 내부 좌표로 변환
+      const imgXCoord = (mouseX - imgRect.left) / totalScale;
+      const imgYCoord = (mouseY - imgRect.top) / totalScale;
+
+      measurePoints.push({ x: imgXCoord, y: imgYCoord });
+
+      // 화면상 클릭한 위치에 점 추가 (wrapper 기준 변환)
+      const screenX = mouseX - rect.left;
+      const screenY = mouseY - rect.top;
+      addMarker(screenX, screenY);
+
+      // 두 점이 모이면 선을 그림
+      if (measurePoints.length === 2) {
+          drawMeasureLine();
+          calculateDistance();
+          measuring = false;
+      }
+
+      event.stopPropagation();
+    }
+
+
+    function clearOverlay() {
+      overlay.innerHTML = "";
+      previewLine = null;
+    }
+
+    function updateOverlay() {
+      if (measurePoints.length === 0) return;
+      clearOverlay();
+      measurePoints.forEach(pt => {
+        const screenX = pt.x;
+        const screenY = pt.y;
+        addMarker(screenX, screenY);
+      });
+      if (measurePoints.length === 2) {
+        drawMeasureLine();
+      }
+      if (measurePoints.length === 1) {
+        const p1 = measurePoints[0];
+        // 현재 마우스 위치 (이벤트 객체 사용 불가하므로, document.onmousemove에서 전역 변수로 관리할 수 있음)
+        // 여기서는 간단히 최근 마우스 위치를 사용한다고 가정
+        drawPreviewLine(p1.x, p1.y);
+      }
+    }
+
+    let lastMousePos = {x:0, y:0};
+    // 마우스 위치 저장 (올바르게 변환)
+    document.addEventListener("mousemove", function (event) {
+      lastMousePos = {
+        x: (event.clientX - wrapper.getBoundingClientRect().left - dx) / totalScale,
+        y: (event.clientY - wrapper.getBoundingClientRect().top - dy) / totalScale,
+      };
+
+      if (measurePoints.length === 1 && measuring) {
+        updateOverlay();
+      }
+    });
+
+    function addMarker(x, y) {
+      const marker = document.createElement("div");
+      marker.classList.add("point");
+      marker.style.left = `${x}px`;
+      marker.style.top = `${y}px`;
+      overlay.appendChild(marker);
+    }
+
+    function drawMeasureLine() {
+      if (measurePoints.length < 2) return;
+
+      const line = document.createElement("div");
+      line.classList.add("line");
+
+      // 두 점의 컨테이너(화면) 좌표 계산
+      const p1 = {
+          x: measurePoints[0].x,
+          y: measurePoints[0].y
+      };
+      const p2 = {
+          x: measurePoints[1].x,
+          y: measurePoints[1].y
+      };
+
+      // 두 점 사이의 거리 계산
+      const deltaX = p2.x - p1.x;
+      const deltaY = p2.y - p1.y;
+      const dist = Math.sqrt(deltaX * deltaX + deltaY * deltaY);
+      const angle = Math.atan2(deltaY, deltaX) * (180 / Math.PI);
+
+      // 선의 스타일 적용
+      line.style.width = `${dist}px`;
+      line.style.left = `${p1.x}px`;
+      line.style.top = `${p1.y}px`;
+      line.style.transform = `rotate(${angle}deg)`;
+      overlay.appendChild(line);
+    }
+
+    function drawPreviewLine(x1, y1) {
+      if (previewLine) {
+        overlay.removeChild(previewLine);
+      }
+    }
+
+
+    function calculateDistance() {
+      const p1 = measurePoints[0];
+      const p2 = measurePoints[1];
+      const dxImg = p2.x - p1.x;
+      const dyImg = p2.y - p1.y;
+      const pixelDistance = Math.sqrt(dxImg * dxImg + dyImg * dyImg);
+      const kmPerPixel = mapSizeKm / img.naturalWidth;
+      const distance = pixelDistance * kmPerPixel * 10000;
+      distanceDisplay.innerText = `D: ${distance.toFixed(2)}m`;
+    }
+
+    // 우클릭 및 좌클릭 방지 (측정 모드가 아닐 때)
+    document.addEventListener('mousedown', function(event) {
+      if (!measuring) event.preventDefault();
+    });
+    document.addEventListener('contextmenu', function(event) {
+      if (!measuring) event.preventDefault();
+    });
+  </script>
+</body>
+</html>
