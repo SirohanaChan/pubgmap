@@ -128,16 +128,16 @@ img {
 
 .line {
     position: absolute;
-    background-color: #becafe;
-    height: 2px;
+    background-color: #cc1111;
+    height: 1px;
     transform-origin: left;
 }
 
 .point {
     position: absolute;
-    width: 5px;
-    height: 5px;
-    background-color: #becafe;
+    width: 2px;
+    height: 2px;
+    background-color: #cc1111;
     border-radius: 50%;
     transform: translate(-50%, -50%);
     z-index: 15;
