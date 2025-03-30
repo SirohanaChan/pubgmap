@@ -1,7 +1,0 @@
-img/Deston_Main_High_Res.png filter=lfs diff=lfs merge=lfs -text
-img/Erangel_Main_High_Res.png filter=lfs diff=lfs merge=lfs -text
-img/Vikendi_Main_High_Res.png filter=lfs diff=lfs merge=lfs -text
-img/Rondo_Main_High_Res.png filter=lfs diff=lfs merge=lfs -text
-img/Sanhok_Main_High_Res.png filter=lfs diff=lfs merge=lfs -text
-img/Taego_Main_High_Res.png filter=lfs diff=lfs merge=lfs -text
-img/Miramar_Main_High_Res.png filter=lfs diff=lfs merge=lfs -text
