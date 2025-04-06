@@ -1,0 +1,87 @@
+body {
+    font-family: 'Pretendard Variable';
+    background-color: #dfdfdf;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    align-items: center;
+    height: 100vh;
+    margin: 0;
+}
+
+.container {
+    display: flex;
+    flex-direction: column;
+    background-color: #fff;
+    padding: 30px;
+    border-radius: 15px;
+    box-shadow: 0 4px 10px rgba(0, 0, 0, 0.1);
+    width: 300px;
+}
+
+.info {
+    display:flex;
+    flex-direction: column;
+    width:360px;
+    font-size: 14px;
+    font-weight: 400;
+    text-align: center;
+    color: rgba(0,0,0,0.6)
+}
+.info h2 {
+    font-size: 16px;
+    font-weight: 600;
+}
+h1 {
+    font-size: 24px;
+    font-weight: 700;
+    margin-bottom: 20px;
+    text-align: center;
+}
+
+label {
+    font-size: 16px;
+    font-weight: 700;
+    margin-top: 10px;
+    display: block;
+    font-weight: bold;
+}
+
+input {
+    padding: 8px;
+    margin-top: 5px;
+    margin-bottom: 10px;
+    border: 1px solid #ccc;
+    border-radius: 8px;
+}
+
+button {
+    width: 100%;
+    padding: 10px;
+    background-color: #6c63ff;
+    color: white;
+    border: none;
+    border-radius: 8px;
+    cursor: pointer;
+    font-size: 16px;
+}
+
+button:hover {
+    background-color: #5548e5;
+}
+
+#result {
+    font-weight: 700;
+    font-size: 24px;
+    text-align: center;
+    color: #333;
+    overflow: hidden;
+    transition: all 0.4s ease;
+    opacity: 0;
+    max-height: 0;
+}
+#result.show {
+    margin-top: 20px;
+    max-height: 100px;
+    opacity: 1;
+}
